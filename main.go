@@ -12,7 +12,6 @@ func main() {
 	config := apiConfig{}
 
 	mux.Handle("/app/", http.StripPrefix("/app/", config.middlewareMetricsInc(http.FileServer(http.Dir(".")))))
-	mux.Handle("/app/assets/logo.png", http.StripPrefix("/app/", http.FileServer(http.Dir("./assets/logo.png"))))
 
 	mux.HandleFunc("GET /api/healthz", getServerReadiness)
 	mux.HandleFunc("GET /api/metrics", config.getRequestCount)
