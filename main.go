@@ -13,9 +13,10 @@ func main() {
 
 	mux.Handle("/app/", http.StripPrefix("/app/", config.middlewareMetricsInc(http.FileServer(http.Dir(".")))))
 	mux.Handle("/app/assets/logo.png", http.StripPrefix("/app/", http.FileServer(http.Dir("./assets/logo.png"))))
-	mux.HandleFunc("GET /healthz", getServerReadiness)
-	mux.HandleFunc("GET /metrics", config.getRequestCount)
-	mux.HandleFunc("POST /reset", config.resetRequestCount)
+
+	mux.HandleFunc("GET /api/healthz", getServerReadiness)
+	mux.HandleFunc("GET /api/metrics", config.getRequestCount)
+	mux.HandleFunc("POST /api/reset", config.resetRequestCount)
 
 	server := &http.Server{Addr: ":8080", Handler: mux}
 	log.Fatal(server.ListenAndServe())
