@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"sync/atomic"
 
+	"github.com/google/uuid"
 	"github.com/syeero7/boot-chirpy/internal/database"
 )
 
@@ -96,6 +97,22 @@ func (cfg *apiConfig) getChirps(w http.ResponseWriter, req *http.Request) {
 	}
 
 	respondWithJSON(w, http.StatusOK, &chirps)
+}
+
+func (cfg *apiConfig) getChirpByID(w http.ResponseWriter, req *http.Request) {
+	chirpID, err := uuid.Parse(req.PathValue("chirp_id"))
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		return
+	}
+
+	chirp, err := cfg.db.GetChirpByID(req.Context(), chirpID)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound))
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, &chirp)
 }
 
 func getServerReadiness(w http.ResponseWriter, _ *http.Request) {
