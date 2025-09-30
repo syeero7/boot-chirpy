@@ -88,6 +88,16 @@ func (cfg *apiConfig) createChirp(w http.ResponseWriter, req *http.Request) {
 	respondWithJSON(w, http.StatusCreated, &chirp)
 }
 
+func (cfg *apiConfig) getChirps(w http.ResponseWriter, req *http.Request) {
+	chirps, err := cfg.db.GetChirps(req.Context())
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, &chirps)
+}
+
 func getServerReadiness(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
