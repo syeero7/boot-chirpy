@@ -32,7 +32,7 @@ func main() {
 
 	mux.HandleFunc("GET /api/healthz", getServerReadiness)
 	mux.HandleFunc("GET /admin/metrics", config.getRequestCount)
-	mux.HandleFunc("POST /admin/reset", config.resetRequestCount)
+	mux.HandleFunc("POST /admin/reset", config.resetServer)
 	mux.HandleFunc("POST /api/validate_chirp", validateChirp)
 	mux.HandleFunc("POST /api/users", config.createUser)
 
@@ -128,7 +128,11 @@ func (cfg *apiConfig) getRequestCount(w http.ResponseWriter, _ *http.Request) {
 	w.Write(fmt.Appendf(nil, "<html><body><h1>Welcome, Chirpy Admin</h1><p>Chirpy has been visited %d times!</p></body></html>", cfg.fileserverHits.Load()))
 }
 
-func (cfg *apiConfig) resetRequestCount(w http.ResponseWriter, _ *http.Request) {
+func (cfg *apiConfig) resetServer(w http.ResponseWriter, req *http.Request) {
+	if err := cfg.db.DeleteUsers(req.Context()); err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		return
+	}
 	cfg.fileserverHits.Swap(0)
 	w.WriteHeader(http.StatusOK)
 }
