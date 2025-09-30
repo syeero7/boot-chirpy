@@ -65,20 +65,9 @@ func (cfg *apiConfig) createUser(w http.ResponseWriter, req *http.Request) {
 	respondWithJSON(w, http.StatusCreated, &user)
 }
 
-func getServerReadiness(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(http.StatusText(http.StatusOK)))
-}
-
-func validateChirp(w http.ResponseWriter, req *http.Request) {
-	type reqParams struct {
-		Body string `json:"body"`
-	}
-
+func (cfg *apiConfig) createChirp(w http.ResponseWriter, req *http.Request) {
 	decoder := json.NewDecoder(req.Body)
-	params := reqParams{}
-
+	params := database.CreateChirpParams{}
 	if err := decoder.Decode(&params); err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
 		return
@@ -89,10 +78,18 @@ func validateChirp(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	type returnVals struct {
-		CleanedBody string `json:"cleaned_body"`
+	chirpData := database.CreateChirpParams{UserID: params.UserID, Body: filterProfanity(params.Body)}
+	chirp, err := cfg.db.CreateChirp(req.Context(), chirpData)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		return
 	}
 
-	body := returnVals{CleanedBody: replaceProfane(params.Body)}
-	respondWithJSON(w, http.StatusOK, &body)
+	respondWithJSON(w, http.StatusCreated, &chirp)
+}
+
+func getServerReadiness(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(http.StatusText(http.StatusOK)))
 }

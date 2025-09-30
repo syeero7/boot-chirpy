@@ -29,8 +29,8 @@ func main() {
 	mux.HandleFunc("GET /api/healthz", getServerReadiness)
 	mux.HandleFunc("GET /admin/metrics", config.getRequestCount)
 	mux.HandleFunc("POST /admin/reset", config.resetServer)
-	mux.HandleFunc("POST /api/validate_chirp", validateChirp)
 	mux.HandleFunc("POST /api/users", config.createUser)
+	mux.HandleFunc("POST /api/chirps", config.createChirp)
 
 	server := &http.Server{Addr: ":8080", Handler: mux}
 	log.Fatal(server.ListenAndServe())

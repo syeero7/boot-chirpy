@@ -32,7 +32,7 @@ func respondWithJSON(w http.ResponseWriter, code int, payload any) {
 	w.Write(data)
 }
 
-func replaceProfane(s string) string {
+func filterProfanity(s string) string {
 	badWords := []string{"kerfuffle", "sharbert", "fornax"}
 	words := strings.Fields(s)
 
