@@ -19,7 +19,7 @@ func main() {
 	mux.HandleFunc("GET /api/healthz", getServerReadiness)
 	mux.HandleFunc("GET /admin/metrics", config.getRequestCount)
 	mux.HandleFunc("POST /admin/reset", config.resetRequestCount)
-	mux.HandleFunc("POST /api/validate_chirp", validateChrip)
+	mux.HandleFunc("POST /api/validate_chirp", validateChirp)
 
 	server := &http.Server{Addr: ":8080", Handler: mux}
 	log.Fatal(server.ListenAndServe())
@@ -31,7 +31,7 @@ func getServerReadiness(w http.ResponseWriter, _ *http.Request) {
 	w.Write([]byte(http.StatusText(http.StatusOK)))
 }
 
-func validateChrip(w http.ResponseWriter, req *http.Request) {
+func validateChirp(w http.ResponseWriter, req *http.Request) {
 	type reqParams struct {
 		Body string `json:"body"`
 	}
