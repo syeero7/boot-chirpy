@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"slices"
+	"strings"
 	"sync/atomic"
 )
 
@@ -48,10 +50,10 @@ func validateChrip(w http.ResponseWriter, req *http.Request) {
 	}
 
 	type returnVals struct {
-		Valid bool `json:"valid"`
+		CleanedBody string `json:"cleaned_body"`
 	}
 
-	body := returnVals{Valid: true}
+	body := returnVals{CleanedBody: replaceProfane(params.Body)}
 	respondWithJSON(w, http.StatusOK, &body)
 }
 
@@ -78,6 +80,19 @@ func respondWithJSON(w http.ResponseWriter, code int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	w.Write(data)
+}
+
+func replaceProfane(s string) string {
+	badWords := []string{"kerfuffle", "sharbert", "fornax"}
+	words := strings.Fields(s)
+
+	for i, word := range words {
+		if slices.Contains(badWords, strings.ToLower(word)) {
+			words[i] = "****"
+		}
+	}
+
+	return strings.Join(words, " ")
 }
 
 type apiConfig struct {
