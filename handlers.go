@@ -12,6 +12,7 @@ import (
 type apiConfig struct {
 	fileserverHits atomic.Int32
 	db             *database.Queries
+	platform       string
 }
 
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
@@ -28,10 +29,16 @@ func (cfg *apiConfig) getRequestCount(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (cfg *apiConfig) resetServer(w http.ResponseWriter, req *http.Request) {
+	if cfg.platform != "dev" {
+		respondWithError(w, http.StatusForbidden, http.StatusText(http.StatusForbidden))
+		return
+	}
+
 	if err := cfg.db.DeleteUsers(req.Context()); err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
 		return
 	}
+
 	cfg.fileserverHits.Swap(0)
 	w.WriteHeader(http.StatusOK)
 }
