@@ -80,9 +80,8 @@ func (cfg *apiConfig) createUser(w http.ResponseWriter, req *http.Request) {
 
 func (cfg *apiConfig) loginUser(w http.ResponseWriter, req *http.Request) {
 	type reqParams struct {
-		Email            string `json:"email"`
-		Password         string `json:"password"`
-		ExpiresInSeconds int    `json:"expires_in_seconds"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
 	}
 
 	decoder := json.NewDecoder(req.Body)
@@ -105,36 +104,99 @@ func (cfg *apiConfig) loginUser(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	expiresIn := 1 * time.Hour
-	if params.ExpiresInSeconds != 0 {
-		if duration, ok := isLessThanHour(params.ExpiresInSeconds); ok {
-			expiresIn = duration
-		}
-	}
-
-	token, err := auth.MakeJWT(user.ID, cfg.jwtSecret, expiresIn)
+	token, err := auth.MakeJWT(user.ID, cfg.jwtSecret, 1*time.Hour)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
 		return
 	}
 
+	refreshToken, err := auth.MakeRefreshToken()
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		return
+	}
+
+	refreshTokenData := database.CreateRefreshTokenParams{
+		Token:     refreshToken,
+		UserID:    user.ID,
+		ExpiresAt: time.Now().UTC().Add(24 * time.Hour * 60),
+	}
+
+	if err := cfg.db.CreateRefreshToken(req.Context(), refreshTokenData); err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		return
+	}
+
 	type ResData struct {
-		ID        uuid.UUID    `json:"id"`
-		Email     string       `json:"email"`
-		Token     string       `json:"token"`
-		CreatedAt sql.NullTime `json:"created_at"`
-		UpdatedAt sql.NullTime `json:"updated_at"`
+		ID           uuid.UUID    `json:"id"`
+		Email        string       `json:"email"`
+		Token        string       `json:"token"`
+		RefreshToken string       `json:"refresh_token"`
+		CreatedAt    sql.NullTime `json:"created_at"`
+		UpdatedAt    sql.NullTime `json:"updated_at"`
 	}
 
 	data := ResData{
-		ID:        user.ID,
-		Email:     user.Email,
-		Token:     token,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
+		ID:           user.ID,
+		Email:        user.Email,
+		Token:        token,
+		RefreshToken: refreshToken,
+		CreatedAt:    user.CreatedAt,
+		UpdatedAt:    user.UpdatedAt,
 	}
 
 	respondWithJSON(w, http.StatusOK, &data)
+}
+
+func (cfg *apiConfig) createRefreshToken(w http.ResponseWriter, req *http.Request) {
+	token, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized))
+		return
+	}
+
+	user, err := cfg.db.GetUserByRefreshToken(req.Context(), token)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized))
+		return
+	}
+
+	str, err := auth.MakeJWT(user.ID, cfg.jwtSecret, 1*time.Hour)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		return
+	}
+
+	type resData struct {
+		Token string `json:"token"`
+	}
+
+	data := resData{
+		Token: str,
+	}
+
+	respondWithJSON(w, http.StatusOK, &data)
+}
+
+func (cfg *apiConfig) revokeRefreshToken(w http.ResponseWriter, req *http.Request) {
+	token, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized))
+		return
+	}
+
+	revokeTokenData := database.RevokeRefreshTokenParams{
+		Token:     token,
+		RevokedAt: sql.NullTime{Time: time.Now().UTC()},
+		UpdatedAt: sql.NullTime{Time: time.Now().UTC()},
+	}
+
+	if err := cfg.db.RevokeRefreshToken(req.Context(), revokeTokenData); err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (cfg *apiConfig) createChirp(w http.ResponseWriter, req *http.Request) {
