@@ -15,5 +15,9 @@ WHERE hashed_password IS NULL;
 ALTER TABLE users 
 ALTER COLUMN hashed_password SET NOT NULL;
 
+ALTER TABLE users 
+ALTER COLUMN created_at SET NOT NULL,
+ALTER COLUMN updated_at SET NOT NULL;
+
 -- +goose down
 DROP TABLE users;

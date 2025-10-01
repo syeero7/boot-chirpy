@@ -8,5 +8,10 @@ updated_at TIMESTAMP DEFAULT NOW(),
 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+
+ALTER TABLE chirps 
+ALTER COLUMN created_at SET NOT NULL,
+ALTER COLUMN updated_at SET NOT NULL;
+
 -- +goose down
 DROP TABLE chirps;

@@ -128,12 +128,12 @@ func (cfg *apiConfig) loginUser(w http.ResponseWriter, req *http.Request) {
 	}
 
 	type ResData struct {
-		ID           uuid.UUID    `json:"id"`
-		Email        string       `json:"email"`
-		Token        string       `json:"token"`
-		RefreshToken string       `json:"refresh_token"`
-		CreatedAt    sql.NullTime `json:"created_at"`
-		UpdatedAt    sql.NullTime `json:"updated_at"`
+		ID           uuid.UUID `json:"id"`
+		Email        string    `json:"email"`
+		Token        string    `json:"token"`
+		RefreshToken string    `json:"refresh_token"`
+		CreatedAt    time.Time `json:"created_at"`
+		UpdatedAt    time.Time `json:"updated_at"`
 	}
 
 	data := ResData{
@@ -183,7 +183,7 @@ func (cfg *apiConfig) updateUserData(w http.ResponseWriter, req *http.Request) {
 		ID:             userID,
 		Email:          params.Email,
 		HashedPassword: hash,
-		UpdatedAt:      sql.NullTime{Time: time.Now().UTC(), Valid: true},
+		UpdatedAt:      time.Now(),
 	}
 
 	user, err := cfg.db.UpdateUser(req.Context(), userData)
@@ -202,8 +202,8 @@ func (cfg *apiConfig) updateUserData(w http.ResponseWriter, req *http.Request) {
 	data := resData{
 		ID:        user.ID,
 		Email:     user.Email,
-		CreatedAt: user.CreatedAt.Time,
-		UpdatedAt: user.UpdatedAt.Time,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
 	}
 
 	respondWithJSON(w, http.StatusOK, &data)
@@ -248,8 +248,8 @@ func (cfg *apiConfig) revokeRefreshToken(w http.ResponseWriter, req *http.Reques
 
 	revokeTokenData := database.RevokeRefreshTokenParams{
 		Token:     token,
-		RevokedAt: sql.NullTime{Time: time.Now().UTC()},
-		UpdatedAt: sql.NullTime{Time: time.Now().UTC()},
+		RevokedAt: sql.NullTime{Time: time.Now(), Valid: true},
+		UpdatedAt: time.Now(),
 	}
 
 	if err := cfg.db.RevokeRefreshToken(req.Context(), revokeTokenData); err != nil {

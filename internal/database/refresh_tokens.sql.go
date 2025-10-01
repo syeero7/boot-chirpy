@@ -57,7 +57,7 @@ WHERE token = $1
 type RevokeRefreshTokenParams struct {
 	Token     string       `json:"token"`
 	RevokedAt sql.NullTime `json:"revoked_at"`
-	UpdatedAt sql.NullTime `json:"updated_at"`
+	UpdatedAt time.Time    `json:"updated_at"`
 }
 
 func (q *Queries) RevokeRefreshToken(ctx context.Context, arg RevokeRefreshTokenParams) error {
