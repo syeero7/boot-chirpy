@@ -41,6 +41,7 @@ func main() {
 	mux.HandleFunc("POST /api/login", config.loginUser)
 	mux.HandleFunc("POST /api/refresh", config.createRefreshToken)
 	mux.HandleFunc("POST /api/revoke", config.revokeRefreshToken)
+	mux.HandleFunc("PUT /api/users", config.updateUserData)
 
 	server := &http.Server{Addr: ":8080", Handler: mux}
 	log.Fatal(server.ListenAndServe())
