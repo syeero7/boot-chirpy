@@ -138,8 +138,24 @@ func (cfg *apiConfig) loginUser(w http.ResponseWriter, req *http.Request) {
 }
 
 func (cfg *apiConfig) createChirp(w http.ResponseWriter, req *http.Request) {
+	token, err := auth.GetBearerToken(req.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized))
+		return
+	}
+
+	userID, err := auth.ValidateJWT(token, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized))
+		return
+	}
+
+	type reqParams struct {
+		Body string `json:"body"`
+	}
+
 	decoder := json.NewDecoder(req.Body)
-	params := database.CreateChirpParams{}
+	params := reqParams{}
 	if err := decoder.Decode(&params); err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
 		return
@@ -150,7 +166,7 @@ func (cfg *apiConfig) createChirp(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	chirpData := database.CreateChirpParams{UserID: params.UserID, Body: filterProfanity(params.Body)}
+	chirpData := database.CreateChirpParams{UserID: userID, Body: filterProfanity(params.Body)}
 	chirp, err := cfg.db.CreateChirp(req.Context(), chirpData)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
