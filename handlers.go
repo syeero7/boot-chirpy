@@ -1,12 +1,15 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"sync/atomic"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/syeero7/boot-chirpy/internal/auth"
 	"github.com/syeero7/boot-chirpy/internal/database"
 )
 
@@ -14,6 +17,7 @@ type apiConfig struct {
 	fileserverHits atomic.Int32
 	db             *database.Queries
 	platform       string
+	jwtSecret      string
 }
 
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
@@ -46,7 +50,8 @@ func (cfg *apiConfig) resetServer(w http.ResponseWriter, req *http.Request) {
 
 func (cfg *apiConfig) createUser(w http.ResponseWriter, req *http.Request) {
 	type reqParams struct {
-		Email string `json:"email"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
 	}
 
 	decoder := json.NewDecoder(req.Body)
@@ -57,13 +62,79 @@ func (cfg *apiConfig) createUser(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	user, err := cfg.db.CreateUser(req.Context(), params.Email)
+	hash, err := auth.HashPassword(params.Password)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		return
+	}
+
+	userData := database.CreateUserParams{Email: params.Email, HashedPassword: hash}
+	user, err := cfg.db.CreateUser(req.Context(), userData)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
 		return
 	}
 
 	respondWithJSON(w, http.StatusCreated, &user)
+}
+
+func (cfg *apiConfig) loginUser(w http.ResponseWriter, req *http.Request) {
+	type reqParams struct {
+		Email            string `json:"email"`
+		Password         string `json:"password"`
+		ExpiresInSeconds int    `json:"expires_in_seconds"`
+	}
+
+	decoder := json.NewDecoder(req.Body)
+	params := reqParams{}
+
+	if err := decoder.Decode(&params); err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		return
+	}
+
+	user, err := cfg.db.GetUserByEmail(req.Context(), params.Email)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		return
+	}
+
+	match, err := auth.CheckPasswordHash(params.Password, user.HashedPassword)
+	if err != nil || !match {
+		respondWithError(w, http.StatusUnauthorized, "Incorrect email or password")
+		return
+	}
+
+	expiresIn := 1 * time.Hour
+	if params.ExpiresInSeconds != 0 {
+		if duration, ok := isLessThanHour(params.ExpiresInSeconds); ok {
+			expiresIn = duration
+		}
+	}
+
+	token, err := auth.MakeJWT(user.ID, cfg.jwtSecret, expiresIn)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		return
+	}
+
+	type ResData struct {
+		ID        uuid.UUID    `json:"id"`
+		Email     string       `json:"email"`
+		Token     string       `json:"token"`
+		CreatedAt sql.NullTime `json:"created_at"`
+		UpdatedAt sql.NullTime `json:"updated_at"`
+	}
+
+	data := ResData{
+		ID:        user.ID,
+		Email:     user.Email,
+		Token:     token,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+	}
+
+	respondWithJSON(w, http.StatusOK, &data)
 }
 
 func (cfg *apiConfig) createChirp(w http.ResponseWriter, req *http.Request) {

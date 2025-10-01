@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"time"
 )
 
 func respondWithError(w http.ResponseWriter, code int, msg string) {
@@ -43,4 +44,9 @@ func filterProfanity(s string) string {
 	}
 
 	return strings.Join(words, " ")
+}
+
+func isLessThanHour(seconds int) (time.Duration, bool) {
+	duration := time.Duration(seconds) * time.Second
+	return duration, duration.Hours() < 1.00
 }
