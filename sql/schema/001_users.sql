@@ -19,5 +19,8 @@ ALTER TABLE users
 ALTER COLUMN created_at SET NOT NULL,
 ALTER COLUMN updated_at SET NOT NULL;
 
+ALTER TABLE users
+ADD COLUMN is_chirpy_red BOOLEAN NOT NULL DEFAULT false;
+
 -- +goose down
 DROP TABLE users;

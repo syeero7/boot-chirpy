@@ -17,6 +17,7 @@ func main() {
 	dbURL := os.Getenv("DB_URL")
 	platform := os.Getenv("PLATFORM")
 	jwtSecret := os.Getenv("JWT_SECRET")
+	polkaKey := os.Getenv("POLKA_KEY")
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		log.Fatal(err)
@@ -27,6 +28,7 @@ func main() {
 		db:        database.New(db),
 		platform:  platform,
 		jwtSecret: jwtSecret,
+		polkaKey:  polkaKey,
 	}
 
 	mux.Handle("/app/", http.StripPrefix("/app/", config.middlewareMetricsInc(http.FileServer(http.Dir(".")))))
@@ -43,6 +45,7 @@ func main() {
 	mux.HandleFunc("POST /api/revoke", config.revokeRefreshToken)
 	mux.HandleFunc("PUT /api/users", config.updateUserData)
 	mux.HandleFunc("DELETE /api/chirps/{chirp_id}", config.deleteChirp)
+	mux.HandleFunc("POST /api/polka/webhooks", config.upgradeChirpyMembership)
 
 	server := &http.Server{Addr: ":8080", Handler: mux}
 	log.Fatal(server.ListenAndServe())

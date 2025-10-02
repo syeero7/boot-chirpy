@@ -18,6 +18,7 @@ type apiConfig struct {
 	db             *database.Queries
 	platform       string
 	jwtSecret      string
+	polkaKey       string
 }
 
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
@@ -134,6 +135,7 @@ func (cfg *apiConfig) loginUser(w http.ResponseWriter, req *http.Request) {
 		RefreshToken string    `json:"refresh_token"`
 		CreatedAt    time.Time `json:"created_at"`
 		UpdatedAt    time.Time `json:"updated_at"`
+		IsChirpyRed  bool      `json:"is_chirpy_red"`
 	}
 
 	data := ResData{
@@ -143,6 +145,7 @@ func (cfg *apiConfig) loginUser(w http.ResponseWriter, req *http.Request) {
 		RefreshToken: refreshToken,
 		CreatedAt:    user.CreatedAt,
 		UpdatedAt:    user.UpdatedAt,
+		IsChirpyRed:  user.IsChirpyRed,
 	}
 
 	respondWithJSON(w, http.StatusOK, &data)
@@ -193,17 +196,19 @@ func (cfg *apiConfig) updateUserData(w http.ResponseWriter, req *http.Request) {
 	}
 
 	type resData struct {
-		ID        uuid.UUID `json:"id"`
-		Email     string    `json:"email"`
-		CreatedAt time.Time `json:"created_at"`
-		UpdatedAt time.Time `json:"updated_at"`
+		ID          uuid.UUID `json:"id"`
+		Email       string    `json:"email"`
+		CreatedAt   time.Time `json:"created_at"`
+		UpdatedAt   time.Time `json:"updated_at"`
+		IsChirpyRed bool      `json:"is_chirpy_red"`
 	}
 
 	data := resData{
-		ID:        user.ID,
-		Email:     user.Email,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
+		ID:          user.ID,
+		Email:       user.Email,
+		CreatedAt:   user.CreatedAt,
+		UpdatedAt:   user.UpdatedAt,
+		IsChirpyRed: user.IsChirpyRed,
 	}
 
 	respondWithJSON(w, http.StatusOK, &data)
@@ -357,6 +362,50 @@ func (cfg *apiConfig) deleteChirp(w http.ResponseWriter, req *http.Request) {
 
 	if err := cfg.db.DeleteChirp(req.Context(), chirpID); err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (cfg *apiConfig) upgradeChirpyMembership(w http.ResponseWriter, req *http.Request) {
+	if key, err := auth.GetAPIKey(req.Header); err != nil || key != cfg.polkaKey {
+		respondWithError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized))
+		return
+	}
+
+	type reqParams struct {
+		Event string `json:"event"`
+		Data  struct {
+			UserID string `json:"user_id"`
+		} `json:"data"`
+	}
+
+	decoder := json.NewDecoder(req.Body)
+	params := reqParams{}
+	if err := decoder.Decode(&params); err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		return
+	}
+
+	if params.Event != "user.upgraded" {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	userID, err := uuid.Parse(params.Data.UserID)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		return
+	}
+
+	chirpyData := database.SetUserChirpyRedParams{
+		ID:          userID,
+		IsChirpyRed: true,
+	}
+
+	if err := cfg.db.SetUserChirpyRed(req.Context(), chirpyData); err != nil {
+		respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound))
 		return
 	}
 
