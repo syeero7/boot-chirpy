@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"sync/atomic"
 	"time"
 
@@ -305,11 +306,45 @@ func (cfg *apiConfig) createChirp(w http.ResponseWriter, req *http.Request) {
 }
 
 func (cfg *apiConfig) getChirps(w http.ResponseWriter, req *http.Request) {
-	chirps, err := cfg.db.GetChirps(req.Context())
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
-		return
+	chirps := []database.Chirp{}
+
+	if s := req.URL.Query().Get("author_id"); len(s) > 0 {
+		authorID, err := uuid.Parse(s)
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+			return
+		}
+
+		tmp, err := cfg.db.GetChirpsByAuthorID(req.Context(), authorID)
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+			return
+		}
+
+		chirps = tmp
+
+	} else {
+		tmp, err := cfg.db.GetChirps(req.Context())
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+			return
+		}
+
+		chirps = tmp
 	}
+
+	sortOrder := "asc"
+	if s := req.URL.Query().Get("author_id"); s == "desc" {
+		sortOrder = "desc"
+	}
+
+	sort.Slice(chirps, func(i, j int) bool {
+		if sortOrder == "desc" {
+			return chirps[i].CreatedAt.After(chirps[j].CreatedAt)
+		} else {
+			return chirps[i].CreatedAt.Before(chirps[j].CreatedAt)
+		}
+	})
 
 	respondWithJSON(w, http.StatusOK, &chirps)
 }
